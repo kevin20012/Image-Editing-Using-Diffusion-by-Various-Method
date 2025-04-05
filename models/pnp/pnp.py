@@ -10,6 +10,8 @@ from .register import register_attention_control
 
 from utils.utils import txt_draw,load_512,latent2image
 
+OURS = True
+
 
 def get_timesteps(scheduler, num_inference_steps, strength, device):
     # get the original timestep using init_timestep
@@ -182,7 +184,7 @@ def register_time(model, t):
 
 
 def register_attention_control_efficient(model, injection_schedule, ours):
-    def sa_forward(self):
+    def sa_forward(self, ours, place_in_unet):
         to_out = self.to_out
         if type(to_out) is torch.nn.modules.container.ModuleList:
             to_out = self.to_out[0]
@@ -194,6 +196,7 @@ def register_attention_control_efficient(model, injection_schedule, ours):
             h = self.heads
 
             is_cross = encoder_hidden_states is not None
+            residual = x
             encoder_hidden_states = encoder_hidden_states if is_cross else x
             if not is_cross and self.injection_schedule is not None and (
                     self.t in self.injection_schedule or self.t == 1000):
@@ -232,15 +235,133 @@ def register_attention_control_efficient(model, injection_schedule, ours):
             out = torch.einsum("b i j, b j d -> b i d", attn, v)
             out = self.batch_to_head_dim(out)
 
+            if ours:
+                alpha = 0.1
+                mid_scale, down_scale = alpha, alpha
+            
+                if self.to_k.in_features != self.to_q.in_features:
+                    pass
+
+                #------------------------------------cross attention------------------------------------------------------
+                else:
+                #-------------------------------------self attention ----------------------------------------------------        
+                    if place_in_unet == "down": 
+                        if self.to_q.in_features == 640:
+                            # out = (1-down_scale)*out + residual*(down_scale)
+                            pass
+                        else:
+                            # out = (1-down_scale)*out + residual*(down_scale)
+                            pass
+                    #-----------------------------------------------------------------------------------------------
+                    elif place_in_unet == "mid": 
+                            # out = (1- mid_scale)*out + residual*(mid_scale)
+                            pass
+                    #-----------------------------------------------------------------------------------------------
+                    elif place_in_unet == "up":
+                        if self.to_q.in_features == 640:
+                            # out = (1-down_scale)*out + residual*(down_scale)
+                            pass
+                        else:
+                            out = (1-down_scale)*out + residual*(down_scale)
+
             return to_out(out)
 
         return forward
+    
+    def ca_forward(self, ours, place_in_unet):
+        to_out = self.to_out
+        if type(to_out) is torch.nn.modules.container.ModuleList:
+            to_out = self.to_out[0]
+        else:
+            to_out = self.to_out
+
+        def forward(x, encoder_hidden_states=None, attention_mask=None):
+            batch_size, sequence_length, dim = x.shape
+            residual = x
+            h = self.heads
+            q = self.to_q(x)
+            is_cross = encoder_hidden_states is not None
+            encoder_hidden_states = encoder_hidden_states if is_cross else x
+            k = self.to_k(encoder_hidden_states)
+            v = self.to_v(encoder_hidden_states)
+            q = self.head_to_batch_dim(q)
+            k = self.head_to_batch_dim(k)
+            v = self.head_to_batch_dim(v)
+
+            sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
+
+            if attention_mask is not None:
+                attention_mask = attention_mask.reshape(batch_size, -1)
+                max_neg_value = -torch.finfo(sim.dtype).max
+                attention_mask = attention_mask[:, None, :].repeat(h, 1, 1)
+                sim.masked_fill_(~attention_mask, max_neg_value)
+
+            # attention, what we cannot get enough of
+            attn = sim.softmax(dim=-1)
+            out = torch.einsum("b i j, b j d -> b i d", attn, v)
+            out = self.batch_to_head_dim(out)
+            if ours:
+                alpha = 0.1
+                mid_scale, down_scale = alpha, alpha
+            
+                if self.to_k.in_features != self.to_q.in_features:
+                    pass
+
+                #------------------------------------cross attention------------------------------------------------------
+                else:
+                #-------------------------------------self attention ----------------------------------------------------        
+                    if place_in_unet == "down": 
+                        if self.to_q.in_features == 640:
+                            # out = (1-down_scale)*out + residual*(down_scale)
+                            pass
+                        else:
+                            # out = (1-down_scale)*out + residual*(down_scale)
+                            pass
+                    #-----------------------------------------------------------------------------------------------
+                    elif place_in_unet == "mid": 
+                            # out = (1- mid_scale)*out + residual*(mid_scale)
+                            pass
+                    #-----------------------------------------------------------------------------------------------
+                    elif place_in_unet == "up":
+                        if self.to_q.in_features == 640:
+                            # out = (1-down_scale)*out + residual*(down_scale)
+                            pass
+                        else:
+                            out = (1-down_scale)*out + residual*(down_scale)
+            return to_out(out)
+
+        return forward
+
+             
+        return forward
+    print("ours", ours)
+    if ours:
+        def register_recr(net_, count, place_in_unet):
+            print(net_.__class__.__name__)
+            if net_.__class__.__name__ == 'Attention':
+                net_.forward = ca_forward(net_, ours, place_in_unet)
+                return count + 1
+            elif hasattr(net_, 'children'):
+                for net__ in net_.children():
+                    count = register_recr(net__, count, place_in_unet)
+            return count
+
+        cross_att_count = 0
+        sub_nets = model.unet.named_children()
+        for net in sub_nets:
+            if "down" in net[0]:
+                cross_att_count += register_recr(net[1], 0, "down")
+            elif "up" in net[0]:
+                cross_att_count += register_recr(net[1], 0, "up")
+            elif "mid" in net[0]:
+                cross_att_count += register_recr(net[1], 0, "mid")
+        print(f"total cross attention layers: {cross_att_count}")
 
     res_dict = {1: [1, 2], 2: [0, 1, 2], 3: [0, 1, 2]}  # we are injecting attention in blocks 4 - 11 of the decoder, so not in the first block of the lowest resolution
     for res in res_dict:
         for block in res_dict[res]:
             module = model.unet.up_blocks[res].attentions[block].transformer_blocks[0].attn1
-            module.forward = sa_forward(module)
+            module.forward = sa_forward(module, ours, "up")
             setattr(module, 'injection_schedule', injection_schedule)
 
 
@@ -460,7 +581,7 @@ class PNP(nn.Module):
                                             num_steps=self.num_ddim_steps,
                                             inversion_prompt=prompt_src, guidance_scale=guidance_scale)
         
-        edited_image=self.run_pnp(image_path,latent_reconstruction,prompt_tar,guidance_scale)
+        edited_image=self.run_pnp(image_path,latent_reconstruction,prompt_tar,guidance_scale, ours=OURS)
         
         image_instruct = txt_draw(f"source prompt: {prompt_src}\ntarget prompt: {prompt_tar}")
 
@@ -486,7 +607,7 @@ class PNP(nn.Module):
                                             num_steps=self.num_ddim_steps,
                                             inversion_prompt=prompt_src)
 
-        edited_image=self.run_pnp(image_path,inverted_x,prompt_tar,guidance_scale)
+        edited_image=self.run_pnp(image_path,inverted_x,prompt_tar,guidance_scale, ours=OURS)
         
         image_instruct = txt_draw(f"source prompt: {prompt_src}\ntarget prompt: {prompt_tar}")
 
@@ -506,17 +627,15 @@ class PNP(nn.Module):
     ):
         torch.cuda.empty_cache()
         image_gt = load_512(image_path)
-        if ours:
-            register_attention_control(self.model)
 
         null_inversion = NullInversion(model=self.model,
                                     num_ddim_steps=self.num_ddim_steps)
 
         _, _, inverted_x, uncond_embeddings = null_inversion.invert(
-            image_gt=image_gt, prompt=prompt_src,guidance_scale=guidance_scale)
+            image_gt=image_gt, prompt=prompt_src,guidance_scale=guidance_scale, ours=OURS)
         
 
-        edited_image=self.run_pnp(image_path,inverted_x,prompt_tar,guidance_scale, uncond_embeddings, ours)
+        edited_image=self.run_pnp(image_path,inverted_x,prompt_tar,guidance_scale, uncond_embeddings, ours=OURS)
         
         image_instruct = txt_draw(f"source prompt: {prompt_src}\ntarget prompt: {prompt_tar}")
 
@@ -543,7 +662,7 @@ class PNP(nn.Module):
             image_gt=image_gt, prompt=prompt_src)
         
 
-        edited_image=self.run_pnp(image_path,inverted_x,prompt_tar,guidance_scale, uncond_embeddings)
+        edited_image=self.run_pnp(image_path,inverted_x,prompt_tar,guidance_scale, uncond_embeddings, ours=OURS)
         
         image_instruct = txt_draw(f"source prompt: {prompt_src}\ntarget prompt: {prompt_tar}")
 

@@ -6,7 +6,7 @@ from PIL import Image
 import torch
 import random
 
-RANGE = (21, 100)
+RANGE = (0, 100)
 
 def put_alpha_channel(image: Image):
     # 1. 알파 채널 생성: 픽셀 값이 0이면 0(투명), 1이면 255(불투명)으로 매핑
@@ -89,6 +89,7 @@ if __name__ == "__main__":
             if not os.path.exists(os.path.dirname(present_image_save_path)):
                 os.makedirs(os.path.dirname(present_image_save_path))
             # mask 저장
+            
             mask.save(os.path.join(os.path.dirname(present_image_save_path), key+"_mask.png"))
             # 원본 image 저장
             Image.open(image_path).save(os.path.join(os.path.dirname(present_image_save_path), key+"_original.png"))
