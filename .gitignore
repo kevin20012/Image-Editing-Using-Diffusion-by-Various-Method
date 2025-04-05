@@ -2,5 +2,6 @@ output
 PIE-Bench/
 *.pyc
 __pycache__/
-calc_score/result
+calc_score/result/*
+calc_score/img/*
 calc_score/*.zip
