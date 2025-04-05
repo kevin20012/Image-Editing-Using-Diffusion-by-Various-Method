@@ -217,8 +217,10 @@ class NullInversion:
         uncond_embeddings, cond_embeddings = self.context.chunk(2)
         all_latent = [latent]
         latent = latent.clone().detach()
+
         for i in tqdm(range(self.num_ddim_steps), desc="DDIM Inversion ..."):
             t = self.model.scheduler.timesteps[len(self.model.scheduler.timesteps) - i - 1]
+            
             noise_pred = self.get_noise_pred_single(latent, t, cond_embeddings)
             latent = self.next_step(noise_pred, t, latent)
             all_latent.append(latent)
@@ -266,9 +268,10 @@ class NullInversion:
                 latent_cur = self.get_noise_pred(latent_cur, t, guidance_scale, False, context)
         return uncond_embeddings_list
     
-    def invert(self, image_gt, prompt, guidance_scale, num_inner_steps=10, early_stop_epsilon=1e-5):
+    def invert(self, image_gt, prompt, guidance_scale, num_inner_steps=10, early_stop_epsilon=1e-5, ours=False):
         self.init_prompt(prompt)
-        register_attention_control(self.model, None)
+        if ours is False:
+            register_attention_control(self.model, None)
         
         image_rec, ddim_latents = self.ddim_inversion(image_gt)
         

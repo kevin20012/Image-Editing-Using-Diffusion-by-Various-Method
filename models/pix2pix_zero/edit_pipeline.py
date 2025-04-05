@@ -40,8 +40,7 @@ class EditingPipeline(BasePipeline):
         # for direct inversion
         latent_list=None,
     ):
-
-        x_in.to(dtype=self.unet.dtype, device=self._execution_device)
+        x_in = x_in.to(dtype=self.unet.dtype, device=self._execution_device)
 
         # 0. modify the unet to be useful :D
         self.unet = prep_unet(self.unet)
@@ -115,7 +114,7 @@ class EditingPipeline(BasePipeline):
                     # compute the previous noisy sample x_t -> x_t-1
                     latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs).prev_sample
                     if latent_list is not None :
-                        noise_loss_list.append(latent_list[-1-i]-latents)
+                        noise_loss_list.append(latent_list[-2-i]-latents)
                         latents=latents+noise_loss_list[-1]
 
                     # call the callback, if provided

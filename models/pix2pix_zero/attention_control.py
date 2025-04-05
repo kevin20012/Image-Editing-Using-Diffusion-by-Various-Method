@@ -11,40 +11,31 @@ LOW_RESOURCE = False
 
 def register_attention_control(model, controller):
     def ca_forward(self, place_in_unet):
-        to_out = self.to_out
-        if type(to_out) is torch.nn.modules.container.ModuleList:
-            to_out = self.to_out[0]
-        else:
-            to_out = self.to_out
+        def forward(hidden_states, encoder_hidden_states=None, attention_mask=None,temb=None,scale=1.0): 
+            query = self.to_q(hidden_states) * 1.0
 
-        def forward(x, context=None, mask=None, **kwargs):
-            if isinstance(context, dict):  # NOTE: compatible with ELITE (0.11.1)
-                context = context['CONTEXT_TENSOR']
-            batch_size, sequence_length, dim = x.shape
-            h = self.heads
-            q = self.to_q(x)
-            is_cross = context is not None
-            context = context if is_cross else x
-            k = self.to_k(context)
-            v = self.to_v(context)
-            q = self.head_to_batch_dim(q)
-            k = self.head_to_batch_dim(k)
-            v = self.head_to_batch_dim(v)
+            if encoder_hidden_states is None:
+                encoder_hidden_states = hidden_states
+            elif self.norm_cross:
+                encoder_hidden_states = self.norm_encoder_hidden_states(encoder_hidden_states)
+                
 
-            sim = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
+            key = self.to_k(encoder_hidden_states) * 1.0
+            value = self.to_v(encoder_hidden_states) * 1.0
 
-            if mask is not None:
-                mask = mask.reshape(batch_size, -1)
-                max_neg_value = -torch.finfo(sim.dtype).max
-                mask = mask[:, None, :].repeat(h, 1, 1)
-                sim.masked_fill_(~mask, max_neg_value)
+            query = self.head_to_batch_dim(query)
+            key = self.head_to_batch_dim(key)
+            value = self.head_to_batch_dim(value)
 
-            # attention, what we cannot get enough of
-            attn = sim.softmax(dim=-1)
-            attn = controller(attn, is_cross, place_in_unet)
-            out = torch.einsum("b i j, b j d -> b i d", attn, v)
-            out = self.batch_to_head_dim(out)
-            return to_out(out)
+            baddbmm_input = None
+            attention_probs = self.get_attention_scores(query, key, attention_mask=baddbmm_input)
+
+            hidden_states = torch.matmul(attention_probs, value)
+            hidden_states = self.batch_to_head_dim(hidden_states)                
+            hidden_states = self.to_out[0](hidden_states) * 1.0
+            hidden_states = self.to_out[1](hidden_states)
+
+            return hidden_states
 
         return forward
 
@@ -60,7 +51,7 @@ def register_attention_control(model, controller):
         controller = DummyController()
 
     def register_recr(net_, count, place_in_unet):
-        if net_.__class__.__name__ == 'CrossAttention':
+        if net_.__class__.__name__ == 'Attention':
             net_.forward = ca_forward(net_, place_in_unet)
             return count + 1
         elif hasattr(net_, 'children'):

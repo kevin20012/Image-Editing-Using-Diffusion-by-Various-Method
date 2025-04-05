@@ -6,6 +6,7 @@ import torch.nn as nn
 from transformers import CLIPTextModel, CLIPTokenizer
 from models.p2p.inversion import DirectInversion, NullInversion, NegativePromptInversion
 import torchvision.transforms as T
+from .register import register_attention_control
 
 from utils.utils import txt_draw,load_512,latent2image
 
@@ -180,7 +181,7 @@ def register_time(model, t):
     setattr(module, 't', t)
 
 
-def register_attention_control_efficient(model, injection_schedule):
+def register_attention_control_efficient(model, injection_schedule, ours):
     def sa_forward(self):
         to_out = self.to_out
         if type(to_out) is torch.nn.modules.container.ModuleList:
@@ -340,6 +341,8 @@ class PNP(nn.Module):
             return self.edit_image_directinversion_PnP(image_path, prompt_src, prompt_tar, guidance_scale, image_size)
         elif edit_method=="null-text-inversion+pnp":
             return self.edit_image_null_text_inversion_pnp(image_path, prompt_src, prompt_tar, guidance_scale, image_size)
+        elif edit_method=="ours+pnp":
+            return self.edit_image_null_text_inversion_pnp(image_path, prompt_src, prompt_tar, guidance_scale, image_size, ours=True)
         elif edit_method=="negative-prompt-inversion+pnp":
             return self.edit_image_negative_prompt_inversion_pnp(image_path, prompt_src, prompt_tar, guidance_scale, image_size)
         
@@ -404,13 +407,13 @@ class PNP(nn.Module):
         #     denoised_latent = torch.concat((denoised_latent[:1]+noise_loss[:1],denoised_latent[1:]))
         return denoised_latent
 
-    def init_pnp(self, conv_injection_t, qk_injection_t):
+    def init_pnp(self, conv_injection_t, qk_injection_t, ours):
         self.qk_injectionum_ddim_steps = self.scheduler.timesteps[:qk_injection_t] if qk_injection_t >= 0 else []
         self.conv_injectionum_ddim_steps = self.scheduler.timesteps[:conv_injection_t] if conv_injection_t >= 0 else []
-        register_attention_control_efficient(self, self.qk_injectionum_ddim_steps)
+        register_attention_control_efficient(self, self.qk_injectionum_ddim_steps, ours)
         register_conv_control_efficient(self, self.conv_injectionum_ddim_steps)
 
-    def run_pnp(self,image_path,noisy_latent,target_prompt,guidance_scale=7.5, uncond_embeddings=None, pnp_f_t=0.8,pnp_attn_t=0.5):
+    def run_pnp(self,image_path,noisy_latent,target_prompt,guidance_scale=7.5, uncond_embeddings=None, pnp_f_t=0.8,pnp_attn_t=0.5, ours=False):
         
         # load image
         self.image = self.get_data(image_path)
@@ -424,7 +427,7 @@ class PNP(nn.Module):
         
         pnp_f_t = int(self.num_ddim_steps * pnp_f_t)
         pnp_attn_t = int(self.num_ddim_steps * pnp_attn_t)
-        self.init_pnp(conv_injection_t=pnp_f_t, qk_injection_t=pnp_attn_t)
+        self.init_pnp(conv_injection_t=pnp_f_t, qk_injection_t=pnp_attn_t, ours=ours)
         if uncond_embeddings is None:
             edited_img = self.sample_loop(self.eps,guidance_scale,noisy_latent)
         else:
@@ -453,7 +456,7 @@ class PNP(nn.Module):
     ):
         torch.cuda.empty_cache()
         image_gt = load_512(image_path)
-        _, rgb_reconstruction, latent_reconstruction, _ = self.model.extract_latents(data_path=image_path,
+        _, rgb_reconstruction, latent_reconstruction = self.model.extract_latents(data_path=image_path,
                                             num_steps=self.num_ddim_steps,
                                             inversion_prompt=prompt_src, guidance_scale=guidance_scale)
         
@@ -498,10 +501,13 @@ class PNP(nn.Module):
         prompt_src,
         prompt_tar,
         guidance_scale=7.5,
-        image_shape=[512,512]
+        image_shape=[512,512],
+        ours=False
     ):
         torch.cuda.empty_cache()
         image_gt = load_512(image_path)
+        if ours:
+            register_attention_control(self.model)
 
         null_inversion = NullInversion(model=self.model,
                                     num_ddim_steps=self.num_ddim_steps)
@@ -510,7 +516,7 @@ class PNP(nn.Module):
             image_gt=image_gt, prompt=prompt_src,guidance_scale=guidance_scale)
         
 
-        edited_image=self.run_pnp(image_path,inverted_x,prompt_tar,guidance_scale, uncond_embeddings)
+        edited_image=self.run_pnp(image_path,inverted_x,prompt_tar,guidance_scale, uncond_embeddings, ours)
         
         image_instruct = txt_draw(f"source prompt: {prompt_src}\ntarget prompt: {prompt_tar}")
 
