@@ -125,6 +125,7 @@ if __name__ == "__main__":
                                         use_inversion_guidance=True,
                                         recon_lr=1,
                                         recon_t=400,
+                                        is_replace_controller=True,
                                         alpha=ALPHA
                                         )
                 elif edit_method.split('+')[-1] == "masactrl":
