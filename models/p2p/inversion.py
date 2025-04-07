@@ -271,8 +271,8 @@ class DirectInversion:
         return next_sample
     
     def get_noise_pred_single(self, latents, t, context):
-        print("latent shape",latents.shape)
-        print("context shape",context.shape)
+        # print("latent shape",latents.shape)
+        # print("context shape",context.shape)
         noise_pred = self.model.unet(latents, t, encoder_hidden_states=context)["sample"]
         return noise_pred
 
@@ -394,10 +394,10 @@ class DirectInversion:
             
         return noise_loss_list
     
-    def invert(self, image_gt, prompt, guidance_scale, num_inner_steps=10, early_stop_epsilon=1e-5):
+    def invert(self, image_gt, prompt, guidance_scale, num_inner_steps=10, early_stop_epsilon=1e-5, alpha=None):
         print(prompt)
         self.init_prompt(prompt)
-        register_attention_control(self.model, None)
+        register_attention_control(self.model, None, alpha=alpha)
         
         image_rec, ddim_latents = self.ddim_inversion(image_gt)
         

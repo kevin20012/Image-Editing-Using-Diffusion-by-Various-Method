@@ -104,45 +104,70 @@ def print_score(image_path, edit_tech, image_name, image_info, file_st, ext="png
     EXT = ext #"png"  # 이미지 확장자
 
     image_original = image_path +"/"+ image_name + "_original." + EXT
-    image_ours = image_path +"/"+ image_name + "_ours."+ EXT
-    image_ddim_w = image_path +"/"+ image_name + "_ddim."+ EXT
-    image_direct_w = image_path +"/"+ image_name + "_directinversion."+ EXT
-    image_neg_w = image_path +"/"+ image_name + "_negative-prompt-inversion."+ EXT
-    image_null_w = image_path +"/"+ image_name + "_null-text-inversion."+ EXT
+    image_ddim_wo_ours = image_path +"/"+ image_name + "_ddim_wo_ours."+ EXT
+    image_ddim_w_ours = image_path +"/"+ image_name + "_ddim_w_ours."+ EXT
+    image_direct_wo_ours = image_path +"/"+ image_name + "_directinversion_wo_ours."+ EXT
+    image_direct_w_ours = image_path +"/"+ image_name + "_directinversion_w_ours."+ EXT
+    image_neg_wo_ours = image_path +"/"+ image_name + "_negative-prompt-inversion_wo_ours."+ EXT
+    image_neg_w_ours = image_path +"/"+ image_name + "_negative-prompt-inversion_w_ours."+ EXT
+    image_null_wo_ours = image_path +"/"+ image_name + "_null-text-inversion_wo_ours."+ EXT
+    image_null_w_ours = image_path +"/"+ image_name + "_null-text-inversion_w_ours."+ EXT
     image_mask = image_path +"/"+ image_name + "_mask."+ EXT
     
-    ours_score = (
-        calculate_structure_distance(image_original, image_ours),
-        *calculate_background_preservation(image_original, image_ours, image_mask),
+    ddim_wo_ours_score = (
+        calculate_structure_distance(image_original, image_ddim_wo_ours),
+        *calculate_background_preservation(image_original, image_ddim_wo_ours, image_mask),
     )
-    ddim_w_score = (
-        calculate_structure_distance(image_original, image_ddim_w),
-        *calculate_background_preservation(image_original, image_ddim_w, image_mask),
+    ddim_w_ours_score = (
+        calculate_structure_distance(image_original, image_ddim_w_ours),
+        *calculate_background_preservation(image_original, image_ddim_w_ours, image_mask),
     )
-    direct_w_score = (
-        calculate_structure_distance(image_original, image_direct_w),
-        *calculate_background_preservation(image_original, image_direct_w, image_mask),
+    direct_wo_ours_score = (
+        calculate_structure_distance(image_original, image_direct_wo_ours),
+        *calculate_background_preservation(image_original, image_direct_wo_ours, image_mask),
     )
-    neg_w_score = (
-        calculate_structure_distance(image_original, image_neg_w),
-        *calculate_background_preservation(image_original, image_neg_w, image_mask),
+    direct_w_ours_score = (
+        calculate_structure_distance(image_original, image_direct_w_ours),
+        *calculate_background_preservation(image_original, image_direct_w_ours, image_mask),
     )
-    null_w_score = (
-        calculate_structure_distance(image_original, image_null_w),
-        *calculate_background_preservation(image_original, image_null_w, image_mask),
+    neg_wo_ours_score = (
+        calculate_structure_distance(image_original, image_neg_wo_ours),
+        *calculate_background_preservation(image_original, image_neg_wo_ours, image_mask),
+    )
+    neg_w_ours_score = (
+        calculate_structure_distance(image_original, image_neg_w_ours),
+        *calculate_background_preservation(image_original, image_neg_w_ours, image_mask),
+    )
+    null_wo_ours_score = (
+        calculate_structure_distance(image_original, image_null_wo_ours),
+        *calculate_background_preservation(image_original, image_null_wo_ours, image_mask),
+    )
+    null_w_ours_score = (
+        calculate_structure_distance(image_original, image_null_w_ours),
+        *calculate_background_preservation(image_original, image_null_w_ours, image_mask),
     )
 
     def get_bold(num, high_best=True):
-        score_list = [ours_score[num], ddim_w_score[num], direct_w_score[num], neg_w_score[num], null_w_score[num]]
-        target = sorted(score_list)[-1 if high_best else 0]
+        score_list = [ddim_wo_ours_score[num], ddim_w_ours_score[num], direct_wo_ours_score[num], direct_w_ours_score[num], neg_wo_ours_score[num], neg_w_ours_score[num], null_wo_ours_score[num], null_w_ours_score[num]]
+        
         result = []
-        for i in range(len(score_list)):
-            if score_list[i] == target:
-                temp = "<strong>%.4f</strong>" % score_list[i]
+        for i in range(len(score_list)//2):
+            temp_list = score_list[i*2:i*2+2]
+            target = sorted(temp_list)[-1 if high_best else 0]
+
+            if temp_list[0] == target:
+                temp = "<strong>%.4f</strong>" % temp_list[0]
+                result.append(temp)
+                temp = "%.4f" % temp_list[1]
+                result.append(temp)
             else:
-                temp = "%.4f" % score_list[i]
-            result.append(temp)
-        return tuple(result)
+                temp = "%.4f" % temp_list[0]
+                result.append(temp)
+                temp = "<strong>%.4f</strong>" % temp_list[1]
+                result.append(temp)
+                
+            
+        return result
 
     # print(f"**"+image_info["original_prompt"]+"**  \n")
     # print(f"**→ " + image_info["editing_prompt"]+"**\n")
@@ -176,45 +201,36 @@ def print_score(image_path, edit_tech, image_name, image_info, file_st, ext="png
     print("  <thead>")
     print("    <tr>")
     print("      <th>지표 ↓ / 모델 →</th>")
-    print("      <th>Ours</th>")
-    print("      <th>w/ DDIM</th>")
-    print("      <th>w/ Direct Inversion</th>")
-    print("      <th>w/ Negative Inversion</th>")
-    print("      <th>w/ Null-text Inversion</th>")
+    print("      <th>ddim</th>")
+    print("      <th>ddim w/ ours</th>")
+    print("      <th>direct_inv</th>")
+    print("      <th>direct_inv w/ ours</th>")
+    print("      <th>negative_inv</th>")
+    print("      <th>negative_inv w/ ours</th>")
+    print("      <th>null text inv</th>")
+    print("      <th>null text inv w/ ours</th>")
     print("    </tr>")
     print("  </thead>")
     print("  <tbody>")
     print("    <tr>")
     print("      <td>Structure Distance ↑</td>")
-    print("      <td>" + bold0[0] + "</td>")
-    print("      <td>" + bold0[1] + "</td>")
-    print("      <td>" + bold0[2] + "</td>")
-    print("      <td>" + bold0[3] + "</td>")
-    print("      <td>" + bold0[4] + "</td>")
+    for i in range(8):
+        print("      <td>" + bold0[i] + "</td>")
     print("    </tr>")
     print("    <tr>")
     print("      <td>Background Preservation (PSNR ↑)</td>")
-    print("      <td>" + bold1[0] + "</td>")
-    print("      <td>" + bold1[1] + "</td>")
-    print("      <td>" + bold1[2] + "</td>")
-    print("      <td>" + bold1[3] + "</td>")
-    print("      <td>" + bold1[4] + "</td>")
+    for i in range(8):
+        print("      <td>" + bold1[i] + "</td>")
     print("    </tr>")
     print("    <tr>")
     print("      <td>Background Preservation (SSIM ↑)</td>")
-    print("      <td>" + bold2[0] + "</td>")
-    print("      <td>" + bold2[1] + "</td>")
-    print("      <td>" + bold2[2] + "</td>")
-    print("      <td>" + bold2[3] + "</td>")
-    print("      <td>" + bold2[4] + "</td>")
+    for i in range(8):
+        print("      <td>" + bold2[i] + "</td>")
     print("    </tr>")
     print("    <tr>")
     print("      <td>Background Preservation (LPIPS ↓)</td>")
-    print("      <td>" + bold3[0] + "</td>")
-    print("      <td>" + bold3[1] + "</td>")
-    print("      <td>" + bold3[2] + "</td>")
-    print("      <td>" + bold3[3] + "</td>")
-    print("      <td>" + bold3[4] + "</td>")
+    for i in range(8):
+        print("      <td>" + bold3[i] + "</td>")
     print("    </tr>")
     print("  </tbody>")
     print("</table>")

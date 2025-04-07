@@ -44,16 +44,10 @@ class AttentionBase:
         is_cross,
         place_in_unet,
         num_heads,
-        residual=None,
         **kwargs
     ):
         out = torch.einsum("b i j, b j d -> b i d", attn, v)
         out = rearrange(out, "(b h) n d -> b n (h d)", h=num_heads)
-
-        alpha = 0.2
-        if residual is not None and not is_cross and place_in_unet == "up":
-            print("🌊 RLI 적용 (alpha=%.2f)" % alpha)
-            out = (1 - alpha) * out + residual * (alpha)
 
         return out
 
@@ -100,7 +94,7 @@ class AttentionStore(AttentionBase):
         )
 
 
-def register_attention_editor_diffusers(model, editor: AttentionBase, rli=False):
+def register_attention_editor_diffusers(model, editor: AttentionBase, alpha=None):
     """
     Register a attention editor to Diffuser Pipeline, refer from [Prompt-to-Prompt]
     """
@@ -156,8 +150,11 @@ def register_attention_editor_diffusers(model, editor: AttentionBase, rli=False)
                 place_in_unet,
                 self.heads,
                 scale=self.scale,
-                residual=residual if rli else None,
             )
+
+            if alpha is not None and not is_cross and place_in_unet == "up":
+                # print("🌊 RLI 적용 (alpha=%.2f)" % alpha)
+                out = (1 - alpha) * out + residual* (alpha)
 
             return to_out(out)
 

@@ -235,8 +235,7 @@ def register_attention_control_efficient(model, injection_schedule, alpha=None):
             out = torch.einsum("b i j, b j d -> b i d", attn, v)
             out = self.batch_to_head_dim(out)
 
-            if ours:
-                alpha = 0.1
+            if alpha is not None:
                 mid_scale, down_scale = alpha, alpha
             
                 if self.to_k.in_features != self.to_q.in_features:
@@ -303,7 +302,7 @@ def register_attention_control_efficient(model, injection_schedule, alpha=None):
     
     if alpha is not None:
         def register_recr(net_, count, place_in_unet):
-            print(net_.__class__.__name__)
+            # print(net_.__class__.__name__)
             if net_.__class__.__name__ == 'Attention':
                 net_.forward = ca_forward(net_, place_in_unet, alpha=alpha)
                 return count + 1
@@ -321,7 +320,7 @@ def register_attention_control_efficient(model, injection_schedule, alpha=None):
                 cross_att_count += register_recr(net[1], 0, "up")
             elif "mid" in net[0]:
                 cross_att_count += register_recr(net[1], 0, "mid")
-        print(f"total cross attention layers: {cross_att_count}")
+        # print(f"total cross attention layers: {cross_att_count}")
 
     res_dict = {1: [1, 2], 2: [0, 1, 2], 3: [0, 1, 2]}  # we are injecting attention in blocks 4 - 11 of the decoder, so not in the first block of the lowest resolution
     for res in res_dict:

@@ -6,8 +6,8 @@ from PIL import Image
 import torch
 import random
 
-RANGE = (21, 100)
-#ours
+RANGE = (0, 100)
+#ours - set None to detach
 ALPHA = 0.1
 
 def put_alpha_channel(image: Image):
@@ -33,10 +33,10 @@ def mask_decode(encoded_mask,image_shape=[512,512]):
             
     mask_array=mask_array.reshape(image_shape[0], image_shape[1])
     # to avoid annotation errors in boundary
-    mask_array[0,:]=1
-    mask_array[-1,:]=1
-    mask_array[:,0]=1
-    mask_array[:,-1]=1
+    mask_array[0,:]=0
+    mask_array[-1,:]=0
+    mask_array[:,0]=0
+    mask_array[:,-1]=0
             
     return mask_array
 
@@ -87,7 +87,8 @@ if __name__ == "__main__":
         
 
         for edit_method in edit_method_list:
-            present_image_save_path=os.path.join(output_path, edit_method.split('+')[-1], key+"_"+edit_method.split('+')[0]+".png")
+            present_image_save_path=os.path.join(output_path, edit_method.split('+')[-1], key+"_"+edit_method.split('+')[0]+"_wo_ours.png")
+            present_image_save_path2=os.path.join(output_path, edit_method.split('+')[-1], key+"_"+edit_method.split('+')[0]+"_w_ours.png")
             if not os.path.exists(os.path.dirname(present_image_save_path)):
                 os.makedirs(os.path.dirname(present_image_save_path))
             # mask 저장
@@ -125,7 +126,26 @@ if __name__ == "__main__":
                                         use_inversion_guidance=True,
                                         recon_lr=1,
                                         recon_t=400,
-                                        is_replace_controller=True,
+                                        alpha=None
+                                        )
+                    edited_image2 = p2p_editor(edit_method,
+                                            image_path=image_path,
+                                        prompt_src=original_prompt,
+                                        prompt_tar=editing_prompt,
+                                        guidance_scale=7.5,
+                                        cross_replace_steps=0.4,
+                                        self_replace_steps=0.6,
+                                        blend_word=(((blended_word[0], ),
+                                                    (blended_word[1], ))) if len(blended_word) else None,
+                                        eq_params={
+                                            "words": (blended_word[1], ),
+                                            "values": (2, )
+                                        } if len(blended_word) else None,
+                                        proximal="l0",
+                                        quantile=0.75,
+                                        use_inversion_guidance=True,
+                                        recon_lr=1,
+                                        recon_t=400,
                                         alpha=ALPHA
                                         )
                 elif edit_method.split('+')[-1] == "masactrl":
@@ -137,7 +157,17 @@ if __name__ == "__main__":
                                         prompt_tar=editing_prompt,
                                         guidance_scale=7.5,
                                         step=4,
-                                        layper=10
+                                        layper=10,
+                                        alpha=None,
+                                        )
+                    edited_image2 = masactrl_editor(edit_method,
+                                            image_path=image_path,
+                                        prompt_src=original_prompt,
+                                        prompt_tar=editing_prompt,
+                                        guidance_scale=7.5,
+                                        step=4,
+                                        layper=10,
+                                        alpha=ALPHA,
                                         )
                 elif edit_method.split('+')[-1] == "pix2pix_zero":
                     from models.pix2pix_zero.pix2pix_zero import Pix2PixZeroEditor
@@ -146,13 +176,16 @@ if __name__ == "__main__":
                 elif edit_method.split('+')[-1] == "pnp":
                     from models.pnp.pnp import PNP as PNPEditor
                     pnp_editor = PNPEditor(50, torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'))
-                    edited_image = pnp_editor(edit_method, image_path=image_path, prompt_src=original_prompt, prompt_tar=editing_prompt, guidance_scale=7.5, alpha=ALPHA)
+                    edited_image = pnp_editor(edit_method, image_path=image_path, prompt_src=original_prompt, prompt_tar=editing_prompt, guidance_scale=7.5, alpha=None)
+                    edited_image2 = pnp_editor(edit_method, image_path=image_path, prompt_src=original_prompt, prompt_tar=editing_prompt, guidance_scale=7.5, alpha=ALPHA)
                 
                 
 
                 # 맨 왼쪽만 잘라냄.
                 edited_image = edited_image.crop((edited_image.size[0]-edited_image.size[1], 0, edited_image.size[0], edited_image.size[1]))
                 edited_image.save(present_image_save_path)
+                edited_image2 = edited_image2.crop((edited_image2.size[0]-edited_image2.size[1], 0, edited_image2.size[0], edited_image2.size[1]))
+                edited_image2.save(present_image_save_path2)
                 
                 print(f"finish")
                 

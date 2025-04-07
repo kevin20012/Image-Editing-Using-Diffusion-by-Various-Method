@@ -144,7 +144,7 @@ def direct_inversion_p2p_guidance_forward(
     generator = None,
     noise_loss_list = None,
     add_offset=True,
-    alpha=alpha
+    alpha=None
 ):
     batch_size = len(prompt)
     register_attention_control(model, controller, alpha=alpha)

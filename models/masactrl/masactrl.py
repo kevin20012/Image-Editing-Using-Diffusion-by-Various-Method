@@ -645,6 +645,7 @@ class MasaCtrlEditor:
         guidance_scale,
         step=4,
         layper=10,
+        alpha=None
     ):
         if edit_method == "ddim+masactrl":
             return self.edit_image_ddim_MasaCtrl(
@@ -654,6 +655,7 @@ class MasaCtrlEditor:
                 guidance_scale,
                 step=step,
                 layper=layper,
+                alpha=alpha
             )
         elif edit_method == "directinversion+masactrl":
             return self.edit_image_directinversion_MasaCtrl(
@@ -663,6 +665,7 @@ class MasaCtrlEditor:
                 guidance_scale,
                 step=step,
                 layper=layper,
+                alpha=alpha
             )
         elif edit_method == "null-text-inversion+masactrl":
             return self.edit_image_null_text_inversion_MasaCtrl(
@@ -672,6 +675,7 @@ class MasaCtrlEditor:
                 guidance_scale,
                 step=step,
                 layper=layper,
+                alpha=alpha
             )
         elif edit_method == "negative-prompt-inversion+masactrl":
             return self.edit_image_negative_prompt_inversion_MasaCtrl(
@@ -681,6 +685,7 @@ class MasaCtrlEditor:
                 guidance_scale,
                 step=step,
                 layper=layper,
+                alpha=alpha
             )
         elif edit_method == "inversion-free-editing+masactrl":
             return self.edit_image_inversion_free_editing_MasaCtrl(
@@ -696,7 +701,7 @@ class MasaCtrlEditor:
 
     # To-Do: Implement the following methods
     def edit_image_null_text_inversion_MasaCtrl(
-        self, image_path, prompt_src, prompt_tar, guidance_scale, step=4, layper=10
+        self, image_path, prompt_src, prompt_tar, guidance_scale, step=4, layper=10, alpha=None
     ):
         source_image = load_image(image_path, self.device)
         image_gt = load_512(image_path)
@@ -715,7 +720,7 @@ class MasaCtrlEditor:
 
         # results of direct synthesis
         editor = AttentionBase()
-        register_attention_editor_diffusers(self.model, editor)
+        register_attention_editor_diffusers(self.model, editor, alpha=alpha)
         image_fixed = self.model(
             [prompt_tar],
             latents=x_t,
@@ -727,7 +732,7 @@ class MasaCtrlEditor:
 
         # hijack the attention module
         editor = MutualSelfAttentionControl(step, layper)
-        register_attention_editor_diffusers(self.model, editor)
+        register_attention_editor_diffusers(self.model, editor, alpha=alpha)
 
         # inference the synthesized image
         image_masactrl = self.model(
@@ -775,6 +780,7 @@ class MasaCtrlEditor:
         dilate_mask=1,
         step=4,
         layper=10,
+        alpha=None
     ):
 
         source_image = load_image(image_path, self.device)
@@ -787,7 +793,7 @@ class MasaCtrlEditor:
         )
 
         _, image_enc_latent, x_stars, uncond_embeddings = null_inversion.invert(
-            image_gt=image_gt, prompt=prompt_src, npi_interp=npi_interp
+            image_gt=image_gt, prompt=prompt_src, npi_interp=npi_interp, alpha=alpha
         )
         x_t = x_stars[-1]
         print("🎙️ inversion finished")
@@ -818,6 +824,7 @@ class MasaCtrlEditor:
             inversion_guidance=False,
             x_stars=None,
             dilate_mask=dilate_mask,
+            alpha=alpha
         )
         print("🎙️ first sampling finished")
 
@@ -855,6 +862,7 @@ class MasaCtrlEditor:
             ),
             x_stars=x_stars,
             dilate_mask=dilate_mask,
+            alpha=alpha,
         )
         print("🎙️ second sampling finished")
         image_masactrl = latent2image(model=self.model.vae, latents=latents_masactrl)
@@ -873,7 +881,7 @@ class MasaCtrlEditor:
         return out_image
 
     def edit_image_directinversion_MasaCtrl(
-        self, image_path, prompt_src, prompt_tar, guidance_scale, step=4, layper=10
+        self, image_path, prompt_src, prompt_tar, guidance_scale, step=4, layper=10, alpha=None
     ):
         source_image = load_image(image_path, self.device)
         image_gt = load_512(image_path)
@@ -885,14 +893,14 @@ class MasaCtrlEditor:
         )
 
         _, image_enc_latent, x_stars, noise_loss_list = null_inversion.invert(
-            image_gt=image_gt, prompt=prompts, guidance_scale=guidance_scale
+            image_gt=image_gt, prompt=prompts, guidance_scale=guidance_scale, alpha=alpha
         )
         x_t = x_stars[-1]
         print("🎙️ inversion finished")
 
         # results of direct synthesis
         editor = AttentionBase()
-        register_attention_editor_diffusers(self.model, editor)
+        register_attention_editor_diffusers(self.model, editor, alpha=alpha)
         image_fixed = self.model(
             [prompt_tar],
             latents=x_t,
@@ -904,7 +912,7 @@ class MasaCtrlEditor:
 
         # hijack the attention module
         editor = MutualSelfAttentionControl(step, layper)
-        register_attention_editor_diffusers(self.model, editor, rli=True)
+        register_attention_editor_diffusers(self.model, editor, alpha=alpha)
 
         # inference the synthesized image
         image_masactrl = self.model(
@@ -936,7 +944,7 @@ class MasaCtrlEditor:
         return Image.fromarray(out_image)
 
     def edit_image_ddim_MasaCtrl(
-        self, image_path, prompt_src, prompt_tar, guidance_scale, step=4, layper=10
+        self, image_path, prompt_src, prompt_tar, guidance_scale, step=4, layper=10, alpha=None
     ):
         source_image = load_image(image_path, self.device)
         image_gt = load_512(image_path)
@@ -955,7 +963,7 @@ class MasaCtrlEditor:
 
         # results of direct synthesis
         editor = AttentionBase()
-        register_attention_editor_diffusers(self.model, editor)
+        register_attention_editor_diffusers(self.model, editor, alpha=alpha)
         image_fixed = self.model(
             [prompt_tar],
             latents=start_code[-1:],
@@ -966,7 +974,7 @@ class MasaCtrlEditor:
 
         # hijack the attention module
         editor = MutualSelfAttentionControl(step, layper)
-        register_attention_editor_diffusers(self.model, editor, rli=True)
+        register_attention_editor_diffusers(self.model, editor, alpha=alpha)
 
         # inference the synthesized image
         image_masactrl = self.model(

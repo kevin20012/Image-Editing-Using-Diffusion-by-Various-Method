@@ -99,7 +99,7 @@ if __name__ == "__main__":
                                     use_inversion_guidance=True,
                                     recon_lr=1,
                                     recon_t=400,
-                                    is_replace_controller=True,
+                                    is_replace_controller=False,
                                     )
             elif edit_method.split('+')[-1] == "masactrl":
                 from models.masactrl.masactrl import MasaCtrlEditor

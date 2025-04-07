@@ -5,17 +5,20 @@ import numpy as np
 import argparse
 
 # --- 1. 컬럼 순서 및 파일명 매핑 ---
-columns = ["original", "mask", "ours", "ddim", "direct inversion", "negative inversion", "null text inversion"]
+columns = ["original", "mask", "ddim", "ddim w/ ours", "direct_inv", "direct_inv w/ ours", "negative_inv", "negative_inv w/ ours", "null text inv", "null text inv w/ ours"]
 
 # 파일명에 사용할 이름 매핑 (파일명에서는 공백 대신 '-' 사용)
 col_mapping = {
     "original": "original",
     "mask": "mask",
-    "ours": "ours",
-    "ddim": "ddim",
-    "direct inversion": "directinversion",
-    "negative inversion": "negative-prompt-inversion",
-    "null text inversion": "null-text-inversion"
+    "ddim": "ddim_wo_ours",
+    "ddim w/ ours": "ddim_w_ours",
+    "direct_inv": "directinversion_wo_ours",
+    "direct_inv w/ ours": "directinversion_w_ours",
+    "negative_inv": "negative-prompt-inversion_wo_ours",
+    "negative_inv w/ ours": "negative-prompt-inversion_w_ours",
+    "null text inv": "null-text-inversion_wo_ours",
+    "null text inv w/ ours": "null-text-inversion_w_ours"
 }
 
 # --- 2. 파일 목록 읽어와서 그룹화 ---
@@ -229,6 +232,8 @@ def draw_result_for_all(edit_tech, img_dir, output_dir):
 
     # --- 7. 각 그룹별로 행 추가 (왼쪽 번호 텍스트와 이미지 붙여넣기) ---
     for row_index, key in enumerate(sorted_keys):
+        if row_index == 0:
+            draw_column_title(row_index)
         # 현재 행의 y 좌표 (헤더 후, 패딩 포함)
         cell_y = header_height + padding + row_index * (img_height + padding)
         
@@ -270,8 +275,8 @@ def draw_result_for_all(edit_tech, img_dir, output_dir):
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--edit_tech", type=str, default="pix2pix_zero")
-parser.add_argument("-i", "--img_path", type=str, default="./img")
+parser.add_argument("-e", "--edit_tech", type=str, default="p2p")
+parser.add_argument("-i", "--img_path", type=str, default="./img_temp")
 parser.add_argument("-o", "--output", type=str, default="./")
 
 args = parser.parse_args()
