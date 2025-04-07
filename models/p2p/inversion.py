@@ -76,7 +76,7 @@ class NegativePromptInversion:
         ddim_latents = self.ddim_loop(latent)
         return image_rec, ddim_latents, latent
 
-    def invert(self, image_gt, prompt, npi_interp=0.0):
+    def invert(self, image_gt, prompt, npi_interp=0.0, alpha=None):
         """
         Get DDIM Inversion of the image
         
@@ -93,7 +93,7 @@ class NegativePromptInversion:
             uncond_embeddings - the fake uncond_embeddings, in fact is cond_embedding or a interpolation among cond_embedding and uncond_embedding
         """
         self.init_prompt(prompt)
-        register_attention_control(self.model, None)
+        register_attention_control(self.model, None, alpha=alpha)
         image_rec, ddim_latents, image_rec_latent = self.ddim_inversion(image_gt)
         uncond_embeddings, cond_embeddings = self.context.chunk(2)
         if npi_interp > 0.0: # do vector interpolation among cond_embedding and uncond_embedding
