@@ -99,7 +99,8 @@ def proximal_guidance_forward(
     recon_t=400,
     inversion_guidance=False,
     x_stars=None,
-    dilate_mask=None
+    dilate_mask=None,
+    alpha=None
 ):
     """
         Get DDIM Forward result
@@ -128,7 +129,7 @@ def proximal_guidance_forward(
             uncond_embeddings - the fake uncond_embeddings, in fact is cond_embedding or a interpolation among cond_embedding and uncond_embedding
     """
     batch_size = len(prompt)
-    register_attention_control(model, controller)
+    register_attention_control(model, controller, alpha=alpha)
     height = width = 512
     
     text_input = model.tokenizer(

@@ -7,6 +7,8 @@ import torch
 import random
 
 RANGE = (21, 100)
+#ours
+ALPHA = 0.1
 
 def put_alpha_channel(image: Image):
     # 1. 알파 채널 생성: 픽셀 값이 0이면 0(투명), 1이면 255(불투명)으로 매핑
@@ -123,6 +125,7 @@ if __name__ == "__main__":
                                         use_inversion_guidance=True,
                                         recon_lr=1,
                                         recon_t=400,
+                                        alpha=ALPHA
                                         )
                 elif edit_method.split('+')[-1] == "masactrl":
                     from models.masactrl.masactrl import MasaCtrlEditor

@@ -9,7 +9,7 @@ MAX_NUM_WORDS = 77
 LATENT_SIZE = (64, 64)
 LOW_RESOURCE = False 
 
-def register_attention_control(model, controller):
+def register_attention_control(model, controller, alpha=None):
     def ca_forward(self, place_in_unet):
         to_out = self.to_out
         if type(to_out) is torch.nn.modules.container.ModuleList:
@@ -21,6 +21,7 @@ def register_attention_control(model, controller):
             if isinstance(context, dict):  # NOTE: compatible with ELITE (0.11.1)
                 context = context['CONTEXT_TENSOR']
             batch_size, sequence_length, dim = x.shape
+            residual = x
             h = self.heads
             q = self.to_q(x)
             is_cross = context is not None
@@ -44,6 +45,41 @@ def register_attention_control(model, controller):
             attn = controller(attn, is_cross, place_in_unet)
             out = torch.einsum("b i j, b j d -> b i d", attn, v)
             out = self.reshape_batch_dim_to_heads(out)
+
+            if alpha is not None:
+                mid_scale, down_scale = alpha, alpha
+            
+                if self.to_k.in_features != self.to_q.in_features:
+                    pass
+                    # if place_in_unet == "down": 
+                    #     hidden_states = (1-down_scale)*hidden_states + residual*(down_scale)
+                            
+                        
+                    # #-----------------------------------------------------------------------------------------------
+                    # elif place_in_unet == "mid": 
+                    #         hidden_states = (1- mid_scale)*hidden_states + residual*(mid_scale)
+                    #         pass
+                    # #-----------------------------------------------------------------------------------------------
+                    # if place_in_unet == "up":                            
+                    #     hidden_states = (1-down_scale)*hidden_states + residual*(down_scale)
+                    #     pass
+                #------------------------------------cross attention------------------------------------------------------
+                else:
+                #-------------------------------------self attention ----------------------------------------------------        
+                    pass
+                    # print("self attention")
+                    # if place_in_unet == "down": 
+                    #     hidden_states = (1-down_scale)*hidden_states + residual*(down_scale)
+                            
+                        
+                    # #-----------------------------------------------------------------------------------------------
+                    # elif place_in_unet == "mid": 
+                    #         hidden_states = (1- mid_scale)*hidden_states + residual*(mid_scale)
+                    #         pass
+                    #-----------------------------------------------------------------------------------------------
+                    if place_in_unet == "up":                            
+                        out = (1-down_scale)*out + residual*(down_scale)
+                        pass
             return to_out(out)
 
         return forward

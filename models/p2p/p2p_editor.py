@@ -42,30 +42,31 @@ class P2PEditor:
                 eq_params=None,
                 is_replace_controller=False,
                 use_inversion_guidance=False,
-                dilate_mask=1,):
+                dilate_mask=1,
+                alpha=None):
         if edit_method=="ddim+p2p":
             return self.edit_image_ddim(image_path, prompt_src, prompt_tar, guidance_scale=guidance_scale, 
                                         cross_replace_steps=cross_replace_steps, self_replace_steps=self_replace_steps, 
-                                        blend_word=blend_word, eq_params=eq_params, is_replace_controller=is_replace_controller)
+                                        blend_word=blend_word, eq_params=eq_params, is_replace_controller=is_replace_controller, alpha=alpha)
         elif edit_method in ["null-text-inversion+p2p", "null-text-inversion+p2p_a800", "null-text-inversion+p2p_3090"]:
             return self.edit_image_null_text_inversion(image_path, prompt_src, prompt_tar, guidance_scale=guidance_scale, 
                                         cross_replace_steps=cross_replace_steps, self_replace_steps=self_replace_steps, 
-                                        blend_word=blend_word, eq_params=eq_params, is_replace_controller=is_replace_controller)
+                                        blend_word=blend_word, eq_params=eq_params, is_replace_controller=is_replace_controller, alpha=alpha)
         elif edit_method == "ablation_null-text-inversion_single_branch+p2p":
             return self.edit_image_null_text_inversion_single_branch(image_path, prompt_src, prompt_tar, guidance_scale=guidance_scale, 
                                         cross_replace_steps=cross_replace_steps, self_replace_steps=self_replace_steps, 
-                                        blend_word=blend_word, eq_params=eq_params, is_replace_controller=is_replace_controller)
+                                        blend_word=blend_word, eq_params=eq_params, is_replace_controller=is_replace_controller, alpha=alpha)
         elif edit_method=="negative-prompt-inversion+p2p":
             return self.edit_image_negative_prompt_inversion(image_path=image_path, prompt_src=prompt_src, prompt_tar=prompt_tar,
                                         guidance_scale=guidance_scale, proximal=None, quantile=quantile, use_reconstruction_guidance=use_reconstruction_guidance,
                                         recon_t=recon_t, recon_lr=recon_lr, cross_replace_steps=cross_replace_steps,
                                         self_replace_steps=self_replace_steps, blend_word=blend_word, eq_params=eq_params,
                                         is_replace_controller=is_replace_controller, use_inversion_guidance=use_inversion_guidance,
-                                        dilate_mask=dilate_mask)
+                                        dilate_mask=dilate_mask, alpha=alpha)
         elif edit_method=="directinversion+p2p":
             return self.edit_image_directinversion(image_path=image_path, prompt_src=prompt_src, prompt_tar=prompt_tar, guidance_scale=guidance_scale, 
                                         cross_replace_steps=cross_replace_steps, self_replace_steps=self_replace_steps, 
-                                        blend_word=blend_word, eq_params=eq_params, is_replace_controller=is_replace_controller)
+                                        blend_word=blend_word, eq_params=eq_params, is_replace_controller=is_replace_controller, alpha=alpha)
         elif edit_method in ["directinversion+p2p_guidance_0_1", "directinversion+p2p_guidance_0_5","directinversion+p2p_guidance_0_25", \
             "directinversion+p2p_guidance_0_75", "directinversion+p2p_guidance_1_1", "directinversion+p2p_guidance_1_5", "directinversion+p2p_guidance_1_25", \
                 "directinversion+p2p_guidance_1_75", "directinversion+p2p_guidance_25_1", "directinversion+p2p_guidance_25_5", "directinversion+p2p_guidance_25_25", \
@@ -145,6 +146,7 @@ class P2PEditor:
         blend_word=None,
         eq_params=None,
         is_replace_controller=False,
+        alpha=None
     ):
         image_gt = load_512(image_path)
         prompts = [prompt_src, prompt_tar]
@@ -152,7 +154,7 @@ class P2PEditor:
         null_inversion = NullInversion(model=self.ldm_stable,
                                     num_ddim_steps=self.num_ddim_steps)
         _, _, x_stars, uncond_embeddings = null_inversion.invert(
-            image_gt=image_gt, prompt=prompt_src,guidance_scale=guidance_scale,num_inner_steps=0)
+            image_gt=image_gt, prompt=prompt_src,guidance_scale=guidance_scale,num_inner_steps=0, alpha=alpha)
         x_t = x_stars[-1]
 
         controller = AttentionStore()
@@ -163,7 +165,8 @@ class P2PEditor:
                                        num_inference_steps=self.num_ddim_steps, 
                                        guidance_scale=guidance_scale, 
                                        generator=None, 
-                                       uncond_embeddings=uncond_embeddings)
+                                       uncond_embeddings=uncond_embeddings,
+                                       alpha=alpha)
         
 
         reconstruct_image = latent2image(model=self.ldm_stable.vae, latents=reconstruct_latent)[0]
@@ -190,7 +193,8 @@ class P2PEditor:
                                        num_inference_steps=self.num_ddim_steps, 
                                        guidance_scale=guidance_scale, 
                                        generator=None, 
-                                       uncond_embeddings=uncond_embeddings)
+                                       uncond_embeddings=uncond_embeddings,
+                                       alpha=alpha)
 
         images = latent2image(model=self.ldm_stable.vae, latents=latents)
 
@@ -207,6 +211,7 @@ class P2PEditor:
         blend_word=None,
         eq_params=None,
         is_replace_controller=False,
+        alpha=None
     ):
         image_gt = load_512(image_path)
         prompts = [prompt_src, prompt_tar]
@@ -214,7 +219,7 @@ class P2PEditor:
         null_inversion = NullInversion(model=self.ldm_stable,
                                     num_ddim_steps=self.num_ddim_steps)
         _, _, x_stars, uncond_embeddings = null_inversion.invert(
-            image_gt=image_gt, prompt=prompt_src,guidance_scale=guidance_scale)
+            image_gt=image_gt, prompt=prompt_src,guidance_scale=guidance_scale, alpha=alpha)
         x_t = x_stars[-1]
 
         controller = AttentionStore()
@@ -225,7 +230,8 @@ class P2PEditor:
                                        num_inference_steps=self.num_ddim_steps, 
                                        guidance_scale=guidance_scale, 
                                        generator=None, 
-                                       uncond_embeddings=uncond_embeddings)
+                                       uncond_embeddings=uncond_embeddings, 
+                                       alpha=alpha)
         
 
         reconstruct_image = latent2image(model=self.ldm_stable.vae, latents=reconstruct_latent)[0]
@@ -252,7 +258,8 @@ class P2PEditor:
                                        num_inference_steps=self.num_ddim_steps, 
                                        guidance_scale=guidance_scale, 
                                        generator=None, 
-                                       uncond_embeddings=uncond_embeddings)
+                                       uncond_embeddings=uncond_embeddings,
+                                       alpha=alpha)
 
         images = latent2image(model=self.ldm_stable.vae, latents=latents)
 
@@ -269,6 +276,7 @@ class P2PEditor:
         blend_word=None,
         eq_params=None,
         is_replace_controller=False,
+        alpha=None
     ):
         image_gt = load_512(image_path)
         prompts = [prompt_src, prompt_tar]
@@ -276,7 +284,7 @@ class P2PEditor:
         null_inversion = NullInversion(model=self.ldm_stable,
                                     num_ddim_steps=self.num_ddim_steps)
         _, _, x_stars, uncond_embeddings = null_inversion.invert(
-            image_gt=image_gt, prompt=prompt_src,guidance_scale=guidance_scale)
+            image_gt=image_gt, prompt=prompt_src,guidance_scale=guidance_scale, alpha=alpha)
         x_t = x_stars[-1]
 
         controller = AttentionStore()
@@ -287,7 +295,8 @@ class P2PEditor:
                                        num_inference_steps=self.num_ddim_steps, 
                                        guidance_scale=guidance_scale, 
                                        generator=None, 
-                                       uncond_embeddings=uncond_embeddings)
+                                       uncond_embeddings=uncond_embeddings,
+                                       alpha=alpha)
         
 
         reconstruct_image = latent2image(model=self.ldm_stable.vae, latents=reconstruct_latent)[0]
@@ -314,7 +323,8 @@ class P2PEditor:
                                        num_inference_steps=self.num_ddim_steps, 
                                        guidance_scale=guidance_scale, 
                                        generator=None, 
-                                       uncond_embeddings=uncond_embeddings)
+                                       uncond_embeddings=uncond_embeddings,
+                                       alpha=alpha)
 
         images = latent2image(model=self.ldm_stable.vae, latents=latents)
 
@@ -340,6 +350,7 @@ class P2PEditor:
         is_replace_controller=False,
         use_inversion_guidance=False,
         dilate_mask=1,
+        alpha=None
     ):
         image_gt = load_512(image_path)
         prompts = [prompt_src, prompt_tar]
@@ -347,7 +358,7 @@ class P2PEditor:
         null_inversion = NegativePromptInversion(model=self.ldm_stable,
                                                 num_ddim_steps=self.num_ddim_steps)
         _, image_enc_latent, x_stars, uncond_embeddings = null_inversion.invert(
-            image_gt=image_gt, prompt=prompt_src, npi_interp=npi_interp)
+            image_gt=image_gt, prompt=prompt_src, npi_interp=npi_interp, alpha=alpha)
         x_t = x_stars[-1]
 
         controller = AttentionStore()
@@ -367,7 +378,8 @@ class P2PEditor:
                     recon_t=recon_t,
                     inversion_guidance=False,
                     x_stars=None,
-                    dilate_mask=dilate_mask)
+                    dilate_mask=dilate_mask,
+                    alpha=alpha)
         
         reconstruct_image = latent2image(model=self.ldm_stable.vae, latents=reconstruct_latent)[0]
         image_instruct = txt_draw(f"source prompt: {prompt_src}\ntarget prompt: {prompt_tar}")
@@ -405,7 +417,8 @@ class P2PEditor:
                         recon_t=recon_t
                             if use_reconstruction_guidance or use_inversion_guidance else 1000,
                         x_stars=x_stars,
-                        dilate_mask=dilate_mask)
+                        dilate_mask=dilate_mask,
+                        alpha=alpha)
 
         images = latent2image(model=self.ldm_stable.vae, latents=latents)
 
@@ -423,6 +436,7 @@ class P2PEditor:
         blend_word=None,
         eq_params=None,
         is_replace_controller=False,
+        alpha=None
     ):
         image_gt = load_512(image_path)
         prompts = [prompt_src, prompt_tar]
@@ -430,7 +444,7 @@ class P2PEditor:
         null_inversion = DirectInversion(model=self.ldm_stable,
                                     num_ddim_steps=self.num_ddim_steps)
         _, _, x_stars, noise_loss_list = null_inversion.invert(
-            image_gt=image_gt, prompt=prompts,guidance_scale=guidance_scale)
+            image_gt=image_gt, prompt=prompts,guidance_scale=guidance_scale, alpha=alpha)
         x_t = x_stars[-1]
 
         controller = AttentionStore()
@@ -442,7 +456,8 @@ class P2PEditor:
                                        latent=x_t,
                                        num_inference_steps=self.num_ddim_steps, 
                                        guidance_scale=guidance_scale, 
-                                       generator=None)
+                                       generator=None,
+                                       alpha=alpha)
     
         
         reconstruct_image = latent2image(model=self.ldm_stable.vae, latents=reconstruct_latent)[0]
@@ -469,7 +484,8 @@ class P2PEditor:
                                        latent=x_t,
                                        num_inference_steps=self.num_ddim_steps, 
                                        guidance_scale=guidance_scale, 
-                                       generator=None)
+                                       generator=None,
+                                       alpha=alpha)
 
         images = latent2image(model=self.ldm_stable.vae, latents=latents)
 

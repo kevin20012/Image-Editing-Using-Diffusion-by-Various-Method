@@ -27,10 +27,11 @@ def p2p_guidance_forward(
     guidance_scale = 7.5,
     generator = None,
     latent = None,
-    uncond_embeddings=None
+    uncond_embeddings=None,
+    alpha=None
 ):
     batch_size = len(prompt)
-    register_attention_control(model, controller)
+    register_attention_control(model, controller, alpha=alpha)
     height = width = 512
     
     text_input = model.tokenizer(
@@ -142,10 +143,11 @@ def direct_inversion_p2p_guidance_forward(
     guidance_scale = 7.5,
     generator = None,
     noise_loss_list = None,
-    add_offset=True
+    add_offset=True,
+    alpha=alpha
 ):
     batch_size = len(prompt)
-    register_attention_control(model, controller)
+    register_attention_control(model, controller, alpha=alpha)
     height = width = 512
     
     text_input = model.tokenizer(

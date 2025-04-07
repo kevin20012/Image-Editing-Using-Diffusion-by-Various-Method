@@ -225,9 +225,9 @@ class NullInversion:
                 latent_cur = self.get_noise_pred(latent_cur, t, guidance_scale, False, context)
         return uncond_embeddings_list
     
-    def invert(self, image_gt, prompt, guidance_scale, num_inner_steps=10, early_stop_epsilon=1e-5):
+    def invert(self, image_gt, prompt, guidance_scale, num_inner_steps=10, early_stop_epsilon=1e-5, alpha=None):
         self.init_prompt(prompt)
-        register_attention_control(self.model, None)
+        register_attention_control(self.model, None, alpha=alpha)
         
         image_rec, ddim_latents = self.ddim_inversion(image_gt)
         
