@@ -421,17 +421,15 @@ class PNP(nn.Module):
         
         print('SD model loaded')
 
-    def __call__(self, edit_method, image_path, prompt_src, prompt_tar, guidance_scale=7.5, image_size=[512,512]):
+    def __call__(self, edit_method, image_path, prompt_src, prompt_tar, guidance_scale=7.5, image_size=[512,512], alpha=None):
         if edit_method=="ddim+pnp":
-            return self.edit_image_ddim_PnP(image_path, prompt_src, prompt_tar, guidance_scale, image_size)
+            return self.edit_image_ddim_PnP(image_path, prompt_src, prompt_tar, guidance_scale, image_size, alpha=alpha)
         elif edit_method=="directinversion+pnp":
-            return self.edit_image_directinversion_PnP(image_path, prompt_src, prompt_tar, guidance_scale, image_size)
+            return self.edit_image_directinversion_PnP(image_path, prompt_src, prompt_tar, guidance_scale, image_size, alpha=alpha)
         elif edit_method=="null-text-inversion+pnp":
-            return self.edit_image_null_text_inversion_pnp(image_path, prompt_src, prompt_tar, guidance_scale, image_size)
-        elif edit_method=="ours+pnp":
-            return self.edit_image_null_text_inversion_pnp(image_path, prompt_src, prompt_tar, guidance_scale, image_size, ours=True)
+            return self.edit_image_null_text_inversion_pnp(image_path, prompt_src, prompt_tar, guidance_scale, image_size, alpha=alpha)
         elif edit_method=="negative-prompt-inversion+pnp":
-            return self.edit_image_negative_prompt_inversion_pnp(image_path, prompt_src, prompt_tar, guidance_scale, image_size)
+            return self.edit_image_negative_prompt_inversion_pnp(image_path, prompt_src, prompt_tar, guidance_scale, image_size, alpha=alpha)
         
         else:
             raise ValueError(f"edit method {edit_method} not supported")

@@ -145,7 +145,7 @@ if __name__ == "__main__":
                 elif edit_method.split('+')[-1] == "pnp":
                     from models.pnp.pnp import PNP as PNPEditor
                     pnp_editor = PNPEditor(50, torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu'))
-                    edited_image = pnp_editor(edit_method, image_path=image_path, prompt_src=original_prompt, prompt_tar=editing_prompt, guidance_scale=7.5)
+                    edited_image = pnp_editor(edit_method, image_path=image_path, prompt_src=original_prompt, prompt_tar=editing_prompt, guidance_scale=7.5, alpha=ALPHA)
                 
                 
 
